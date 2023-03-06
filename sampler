@@ -1,0 +1,106 @@
+import React, { useState, useEffect } from 'react';
+
+function App() {
+  const [buffer, setBuffer] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(0.5);
+  const [pitch, setPitch] = useState(1.0);
+  const [speed, setSpeed] = useState(1.0);
+  const [reverb, setReverb] = useState(0.0);
+
+  useEffect(() => {
+    const loadSample = async () => {
+      const response = await fetch('example-sample.mp3');
+      const arrayBuffer = await response.arrayBuffer();
+      const audioContext = new AudioContext();
+      const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      setBuffer(decodedBuffer);
+    };
+    loadSample();
+  }, []);
+
+  const play = () => {
+    if (buffer) {
+      const audioContext = new AudioContext();
+      const source = audioContext.createBufferSource();
+      const gainNode = audioContext.createGain();
+      const pitchShiftNode = audioContext.createScriptProcessor(2048, 1, 1);
+      const reverbNode = audioContext.createConvolver();
+      pitchShiftNode.buffer = new Float32Array(2048 * 2);
+      pitchShiftNode.onaudioprocess = (event) => {
+        const inputData = event.inputBuffer.getChannelData(0);
+        const outputData = event.outputBuffer.getChannelData(0);
+        const pitchRatio = pitch / 1.0;
+        const speedRatio = speed / 1.0;
+        for (let i = 0; i < inputData.length; i++) {
+          const index = Math.floor(i / (pitchRatio * speedRatio));
+          outputData[i] = inputData[index] || 0;
+        }
+      };
+      source.buffer = buffer;
+      source.connect(pitchShiftNode);
+      pitchShiftNode.connect(reverbNode);
+      reverbNode.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      gainNode.gain.value = volume;
+      source.playbackRate.value = pitch;
+      source.start();
+      setIsPlaying(true);
+    }
+  };
+
+  const stop = () => {
+    setIsPlaying(false);
+  };
+
+  const handleVolumeChange = (event) => {
+    setVolume(event.target.value);
+  };
+
+  const handlePitchChange = (event) => {
+    setPitch(event.target.value);
+  };
+
+  const handleSpeedChange = (event) => {
+    setSpeed(event.target.value);
+  };
+
+  const handleReverbChange = (event) => {
+    setReverb(event.target.value);
+  };
+
+  return (
+    <div>
+      <button onClick={play} disabled={isPlaying}>
+        {isPlaying ? 'Playing...' : 'Play'}
+      </button>
+      <button onClick={stop} disabled={!isPlaying}>Stop</button>
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        value={volume}
+        onChange={handleVolumeChange}
+      />
+      <input
+        type="range"
+        min="0.5"
+        max="2.0"
+        step="0.01"
+        value={pitch}
+        onChange={handlePitchChange}
+      />
+      <input
+        type="range"
+        min="0.5"
+        max="2.0"
+        step="0.01"
+        value={speed}
+        onChange={handleSpeedChange}
+      />
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="
